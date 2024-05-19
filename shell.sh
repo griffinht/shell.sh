@@ -2,6 +2,29 @@
 
 set -e
 
+# hooks
+#
+# todo make this a login hook
+load_bin() {
+    bin_dir="$(readlink -f "$directory/$SHELL_BIN_DIR")"
+    #bin_dir="$(readlink -f "$SHELL_BIN_DIR")"
+    if [ -d "$bin_dir" ]; then
+        echo loading scripts in "$SHELL_BIN_DIR"
+        # scripts in bin_dir should override regular scripts
+        #export PATH="$PATH:$bin_dir"
+        export PATH="$bin_dir:$PATH"
+        # todo supress this output
+        echo
+        ls -h "$bin_dir"
+        echo
+    fi
+}
+
+
+
+
+
+
 # only set if unset?? naw
 SHELL_ENV_FILE=shell.env
 SHELL_BIN_DIR=bin
@@ -13,73 +36,95 @@ SHELL_BIN_DIR=bin
 # --version
 # echo shell.sh no version yet
 
-# default to current directory
-default_target=.
-if [ "$1" == -- ]; then
-    # shell.sh -- [args]
-    target="$default_target"
-    shift
-else
-    # shell.sh target -- [args]
-    # shell.sh
-    # shell.sh target [args]
-    if [ -n "${1+x}" ]; then
-        target="$1"
-        shift
-    else
-        target="$default_target"
-    fi
-
+shell.sh() {
+    # default to current directory
+    default_target=.
     if [ "$1" == -- ]; then
-        # shell.sh target -- [args]
+        # shell.sh -- [args]
+        target="$default_target"
         shift
     else
+        # shell.sh target -- [args]
         # shell.sh
         # shell.sh target [args]
-        true
+        if [ -n "${1+x}" ]; then
+            target="$1"
+            shift
+        else
+            target="$default_target"
+        fi
+
+        if [ "$1" == -- ]; then
+            # shell.sh target -- [args]
+            shift
+        else
+            # shell.sh
+            # shell.sh target [args]
+            true
+        fi
     fi
-fi
 
-if [ -d "$target" ]; then
-    directory="$target"
-    #env_file="$directory/$SHELL_ENV_FILE"
-else
-    directory="$(dirname "$target")"
-    env_file="$target"
-fi
-# todo allow --directory
-shell_directory="$(basename "$(realpath "$directory")")"
-shell_environment="${environment:-default environment}"
+    if [ -d "$target" ]; then
+        directory="$target"
+        #env_file="$directory/$SHELL_ENV_FILE"
+    else
+        directory="$(dirname "$target")"
+        env_file="$target"
+    fi
+    # todo allow --directory
+    shell_directory="$(basename "$(realpath "$directory")")"
+    shell_environment="${environment:-default environment}"
 
-# todo pre load hooks
-echo entering "$shell_directory" "$shell_environment"
-# todo test if env_file ends with shell env file
-if [ -z "${env_file+x}" ]; then
-    env_file="$directory/$SHELL_ENV_FILE"
-    if [ -f "$env_file" ]; then
+    # todo pre load hooks
+    load_bin
+
+    load() {
+        env_file="$1"
+        import() {
+            echo import
+            unset env_file
+            SHELL_DONE=true shell.sh "$1"
+        }
+        export -f import
+        old_dir="$PWD"
         set -x
-        source "$env_file"
+        cd "$directory" && source "$env_file"
         set +x
+        cd "$old_dir"
+    }
+
+    # todo test if env_file ends with shell env file
+    if [ -z "${env_file+x}" ]; then
+        env_file="$directory/$SHELL_ENV_FILE"
+        if [ -f "$env_file" ]; then
+            load "$env_file"
+        fi
+        # no worries if SHELL_ENV_FILE doesn't exist
+    else
+        #env_file="$directory/$env_file"
+        # must exist
+        if [ ! -f "$env_file" ]; then
+            echo env file \""$env_file"\" does not exist
+            exit 1
+        fi
+
+        load "$env_file"
     fi
-    # no worries if SHELL_ENV_FILE doesn't exist
-else
-    # must exist
-    if [ ! -f "$env_file" ]; then
-        echo env file \""$env_file"\" does not exist
-        exit 1
+    # todo post load hooks
+    if [ "$SHELL_DONE" == true ]; then
+        echo imported "$shell_directory" "$shell_environment"
+        return 0
     fi
 
-    set -x
-    source "$env_file"
-    set +x
-fi
-# todo post load hooks
-if [ "$#" -gt 0 ]; then
-    "$@"
-else
-    "$SHELL"
-fi
-echo exiting "$shell_directory" "$shell_environment"
+    if [ "$#" -gt 0 ]; then
+        "$@"
+    else
+        echo entering "$shell_directory" "$shell_environment"
+        "$SHELL"
+        echo exiting "$shell_directory" "$shell_environment"
+    fi
+}
+shell.sh "$@"
 
 exit 0
 
@@ -134,21 +179,6 @@ read_config() {
 #workspace_dir="$(readlink -f "$(dirname "$0")")"
 
 # todo make this a login hook
-load_bin() {
-    #bin_dir="$(readlink -f "$workspace_dir/$SHELL_BIN_DIR")"
-    bin_dir="$(readlink -f "$SHELL_BIN_DIR")"
-    if [ -d "$bin_dir" ]; then
-        echo loading scripts in "$SHELL_BIN_DIR"
-        # scripts in bin_dir should override regular scripts
-        #export PATH="$PATH:$bin_dir"
-        export PATH="$bin_dir:$PATH"
-        # todo supress this output
-        echo
-        ls -h "$bin_dir"
-        echo
-    fi
-}
-load_bin
 
 # todo login hooks
 echo "entered $SHELL_ENV"
