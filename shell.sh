@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -e
+set -o nounset
 
 # hooks
 #
@@ -38,91 +39,82 @@ SHELL_BIN_DIR=bin
 
 shell.sh() {
     # default to current directory
-    default_target=.
-    if [ "$1" == -- ]; then
-        # shell.sh -- [args]
-        target="$default_target"
-        shift
-    else
-        # shell.sh target -- [args]
-        # shell.sh
-        # shell.sh target [args]
-        if [ -n "${1+x}" ]; then
+    declare -r default_target=.
+    local target
+    if [ "$#" -gt 0 ]; then
+        if [ "$1" == -- ]; then
+            target="$default_target"
+            shift
+        else
             target="$1"
             shift
-        else
-            target="$default_target"
-        fi
 
-        if [ "$1" == -- ]; then
-            # shell.sh target -- [args]
-            shift
-        else
-            # shell.sh
-            # shell.sh target [args]
-            true
+            if [ "$#" -gt 0 ] && [ "$1" == -- ]; then
+                shift
+            fi
         fi
     fi
 
     if [ -d "$target" ]; then
         directory="$target"
+        # in case it was set above
+        unset env_file
         #env_file="$directory/$SHELL_ENV_FILE"
     else
         directory="$(dirname "$target")"
         env_file="$target"
     fi
     # todo allow --directory
-    shell_directory="$(basename "$(realpath "$directory")")"
-    shell_environment="${environment:-default environment}"
 
     # todo pre load hooks
     load_bin
 
     load() {
-        env_file="$1"
+        directory="$1"
+        env_file="$2"
         import() {
-            echo import
-            unset env_file
-            SHELL_DONE=true shell.sh "$1"
+            import_file="$1"
+            SHELL_SUB=true shell.sh "$import_file" -- echo import
         }
         export -f import
         old_dir="$PWD"
         set -x
         cd "$directory" && source "$env_file"
+        #source "$env_file"
         set +x
         cd "$old_dir"
     }
 
     # todo test if env_file ends with shell env file
     if [ -z "${env_file+x}" ]; then
-        env_file="$directory/$SHELL_ENV_FILE"
-        if [ -f "$env_file" ]; then
-            load "$env_file"
+        env_file="$SHELL_ENV_FILE"
+        if [ -f "$directory/$env_file" ]; then
+            load "$directory" "$env_file"
         fi
         # no worries if SHELL_ENV_FILE doesn't exist
     else
-        #env_file="$directory/$env_file"
         # must exist
-        if [ ! -f "$env_file" ]; then
+        if [ ! -f "$directory/$env_file" ]; then
             echo env file \""$env_file"\" does not exist
             exit 1
         fi
 
-        load "$env_file"
+        load "$directory" "$env_file"
     fi
     # todo post load hooks
-    if [ "$SHELL_DONE" == true ]; then
-        echo imported "$shell_directory" "$shell_environment"
-        return 0
-    fi
 
+    # run a command
     if [ "$#" -gt 0 ]; then
         "$@"
-    else
-        echo entering "$shell_directory" "$shell_environment"
-        "$SHELL"
-        echo exiting "$shell_directory" "$shell_environment"
+        return "$?"
     fi
+
+    # run interactively
+    shell_directory="$(basename "$(realpath "$directory")")"
+    shell_environment="${environment:-default environment}"
+    echo entering "$shell_directory" "$shell_environment"
+    "$SHELL"
+    echo exiting "$shell_directory" "$shell_environment"
 }
 shell.sh "$@"
 
