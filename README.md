@@ -1,3 +1,144 @@
+# custom dev environments
+
+make the readme the elevator pitch - SHORT AS POSSIBLE!!
+hey bro heres the github try it out!
+wget script
+chmod +x script
+
+then its like how do i use it??
+
+# Installation
+
+```sh
+$ wget code.com/shell.sh 
+$ chmod +x shell.sh
+$ ./shell.sh
+entered default shell environment
+[default] $ exit
+exited default shell environment
+$ # consider adding shell.sh to your path!
+$ export PATH="$PATH:$PWD"
+$ shell.sh --version
+$ # or just run the script with an explicit path
+$ cd dir
+$ ../shell.sh --version
+$ bash ../shell.sh --version
+```
+
+is --help the first usability thing you want?
+
+# Env var example
+
+```sh
+$ echo 'export MY_VAR=example' > shell.env
+$ env | grep MY_VAR
+$ shell.sh
+[default] $ env | grep MY_VAR
+MY_VAR=example
+[default] $ exit
+$
+```
+
+See [env var expansion] for more details
+
+# Bin example
+
+`bin/hello.sh`
+```sh
+#!/bin/sh
+
+echo hello ${NAME:-unknown}
+```
+
+`shell.env`
+```sh
+export NAME=billy
+```
+
+```
+bin/my_script.sh
+shell.env
+```
+
+```sh
+$ shell.sh 
+$ ./bin/hello.sh
+hello unknown
+loaded hello.sh
+[default] $ hello.sh
+hello billy
+[default] $ exit
+$ hello.sh
+cmd not found
+```
+
+See [bin hook] for more details
+
+# Import example
+
+    shell.sh can be run from anywhere!
+
+
+# Docker example
+
+```
+prod.override.yml
+compose.yml
+prod.env
+dev.env
+```
+
+## Location development
+
+    spin up the app on my laptop
+
+## Deploy to production
+
+    deploy the app to my production server
+
+`prod.env`
+```
+export SSH_HOST="root@prod"
+export DOCKER_HOST="ssh://$SSH_HOST"
+export COMPOSE_FILE=prod.yml
+export DOMAIN=example.com
+```
+
+make this shorter and sweeter! introduce concepts one at a time! pretend its a demo! you shouldn't have to explain it!
+```
+$ shell.sh prod.env
+entered prod envi
+[prod] $ echo $DOCKER_HOST $COMPOSE_FILE
+ssh://root@prod prod.yml
+[prod] $ docker compose ps
+running...
+[prod] $ mount.sh
+[prod] $ ls mnt
+[prod] $ sudo unmount mnt
+[prod] $ ssh.sh
+root@prod $ w
+uptime
+root@prod $ exit
+[prod] $ exit
+exited prod
+$ echo $DOCKER_HOST $COMPOSE_FILE
+
+$ ..
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # `shell.sh` is not:
 
 - a package manager
