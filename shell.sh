@@ -5,6 +5,17 @@ set -o nounset
 
 # hooks
 #
+load_import() {
+    if [ -z "${SHELL_IMPORTS+x}" ]; then
+        return 0
+    fi
+    IFS=':'
+    shell_imports="$SHELL_IMPORTS"
+    unset SHELL_IMPORTS
+    for shell_import in $shell_imports; do
+        import "$shell_import"
+    done
+}
 # todo make this a login hook
 load_bin() {
     bin_dir="$(readlink -f "$directory/$SHELL_BIN_DIR")"
@@ -19,9 +30,53 @@ load_bin() {
         ls -h "$bin_dir"
         echo
     fi
+    unset "$SHELL_BIN_DIR"
 }
 
 
+import() {
+    if [ -d "$target" ]; then
+        directory="$target"
+        # in case it was set above
+        unset env_file
+        #env_file="$directory/$SHELL_ENV_FILE"
+    else
+        directory="$(dirname "$target")"
+        env_file="$target"
+    fi
+
+    load() {
+        directory="$1"
+        env_file="$2"
+        old_dir="$PWD"
+        set -x
+        cd "$directory" && source "$env_file"
+        #source "$env_file"
+        set +x
+        cd "$old_dir"
+        # todo pass and unset
+        load_import
+        load_bin
+    }
+
+    # todo test if env_file ends with shell env file
+    if [ -z "${env_file+x}" ]; then
+        env_file="$SHELL_ENV_FILE"
+        if [ -f "$directory/$env_file" ]; then
+            load "$directory" "$env_file"
+        fi
+        # no worries if SHELL_ENV_FILE doesn't exist
+    else
+        # must exist
+        if [ ! -f "$directory/$env_file" ]; then
+            echo env file \""$env_file"\" does not exist
+            exit 1
+        fi
+
+        load "$directory" "$env_file"
+    fi
+    # todo post load hooks
+}
 
 
 
@@ -55,53 +110,7 @@ shell.sh() {
         fi
     fi
 
-    if [ -d "$target" ]; then
-        directory="$target"
-        # in case it was set above
-        unset env_file
-        #env_file="$directory/$SHELL_ENV_FILE"
-    else
-        directory="$(dirname "$target")"
-        env_file="$target"
-    fi
-    # todo allow --directory
-
-    # todo pre load hooks
-    load_bin
-
-    load() {
-        directory="$1"
-        env_file="$2"
-        import() {
-            import_file="$1"
-            SHELL_SUB=true shell.sh "$import_file" -- echo import
-        }
-        export -f import
-        old_dir="$PWD"
-        set -x
-        cd "$directory" && source "$env_file"
-        #source "$env_file"
-        set +x
-        cd "$old_dir"
-    }
-
-    # todo test if env_file ends with shell env file
-    if [ -z "${env_file+x}" ]; then
-        env_file="$SHELL_ENV_FILE"
-        if [ -f "$directory/$env_file" ]; then
-            load "$directory" "$env_file"
-        fi
-        # no worries if SHELL_ENV_FILE doesn't exist
-    else
-        # must exist
-        if [ ! -f "$directory/$env_file" ]; then
-            echo env file \""$env_file"\" does not exist
-            exit 1
-        fi
-
-        load "$directory" "$env_file"
-    fi
-    # todo post load hooks
+    import "$target"
 
     # run a command
     if [ "$#" -gt 0 ]; then
