@@ -52,14 +52,15 @@ import() {
     # shellcheck disable=SC2086
     unset ${!shell_*}
     shell_target="$1"
+    local shell_directory
 
     if [ -d "$shell_target" ]; then
-        local shell_directory="$shell_target"
+        shell_directory="$shell_target"
         # in case it was set above
         #unset env_file
         #env_file="$directory/$SHELL_ENV_FILE"
     else
-        local shell_directory="$(dirname "$shell_target")"
+        shell_directory="$(dirname "$shell_target")"
         shell_env_file="$(basename "$shell_target")"
     fi
 
@@ -73,6 +74,7 @@ import() {
 
         cd "$shell_directory"
         set -x
+        # shellcheck disable=SC1090
         source "$shell_env_file"
         set +x
         cd "$shell_old_dir"
@@ -102,12 +104,14 @@ import() {
     fi
     # todo post load hooks
     shell_return_directory="$shell_directory"
+    shell_return_environment="${shell_env_file:-default}"
 }
 
 
 
 
 # only set if unset?? naw
+# todo readonly???
 SHELL_ENV_FILE=shell.env
 SHELL_BIN_DIR=bin
 
@@ -138,6 +142,7 @@ shell.sh() {
 
     import "$target"
     local shell_directory="$shell_return_directory"
+    local shell_environment="$shell_return_environment"
     unset "${!shell_return_*}"
     # todo make sure everything was local and nothing propogated up?
 
@@ -149,9 +154,8 @@ shell.sh() {
     fi
 
     # run interactively
-    local shell_directory="$(basename "$(realpath "$shell_directory")")"
+    shell_directory="$(basename "$(realpath "$shell_directory")")"
     # todo this looks wrong
-    shell_environment="${environment:-default environment}"
     echo entering "$shell_directory" "$shell_environment"
     # todo should this have a command? command "$SHELL
     "$SHELL"
