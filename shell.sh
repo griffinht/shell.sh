@@ -16,7 +16,7 @@ load_import() {
     if [ -z "${SHELL_IMPORTS+x}" ]; then
         return 0
     fi
-    IFS=':'
+    local IFS=':'
     shell_imports="$SHELL_IMPORTS"
     unset SHELL_IMPORTS
     for shell_import in $shell_imports; do
@@ -31,6 +31,7 @@ load_bin() {
     unset "${!shell_*}"
     local shell_directory="$1"
 
+    local bin_dir
     bin_dir="$(readlink -f "$shell_directory/$SHELL_BIN_DIR")"
     #bin_dir="$(readlink -f "$SHELL_BIN_DIR")"
     if [ -d "$bin_dir" ]; then
@@ -51,7 +52,7 @@ import() {
     # usage import target
     # shellcheck disable=SC2086
     unset ${!shell_*}
-    shell_target="$1"
+    local shell_target="$1"
     local shell_directory
 
     if [ -d "$shell_target" ]; then
@@ -61,6 +62,7 @@ import() {
         #env_file="$directory/$SHELL_ENV_FILE"
     else
         shell_directory="$(dirname "$shell_target")"
+        local shell_env_file
         shell_env_file="$(basename "$shell_target")"
     fi
 
@@ -70,7 +72,7 @@ import() {
         local shell_directory="$1"
         shell_env_file="$2"
 
-        shell_old_dir="$PWD"
+        local shell_old_dir="$PWD"
 
         cd "$shell_directory"
         set -x
@@ -88,7 +90,7 @@ import() {
 
     # todo test if env_file ends with shell env file
     if [ -z "${shell_env_file+x}" ]; then
-        shell_env_file="$SHELL_ENV_FILE"
+        local shell_env_file="$SHELL_ENV_FILE"
         if [ -f "$shell_directory/$shell_env_file" ]; then
             load "$shell_directory" "$shell_env_file"
         fi
