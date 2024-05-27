@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
 
 set -e
+set -o errexit
+set -o pipefail
 set -o nounset
+# todo make everything local
 
 # hooks
 #
 load_import() {
+    # usage load_import directory
+    unset "${!shell_*}"
+    local shell_directory="$1"
+
     if [ -z "${SHELL_IMPORTS+x}" ]; then
         return 0
     fi
@@ -13,12 +20,18 @@ load_import() {
     shell_imports="$SHELL_IMPORTS"
     unset SHELL_IMPORTS
     for shell_import in $shell_imports; do
-        import "$shell_import"
+        echo "$shell_directory" "$shell_import"
+        import "$shell_directory/$shell_import"
     done
 }
+
 # todo make this a login hook
 load_bin() {
-    bin_dir="$(readlink -f "$directory/$SHELL_BIN_DIR")"
+    # usage load_bin directory
+    unset "${!shell_*}"
+    local shell_directory="$1"
+
+    bin_dir="$(readlink -f "$shell_directory/$SHELL_BIN_DIR")"
     #bin_dir="$(readlink -f "$SHELL_BIN_DIR")"
     if [ -d "$bin_dir" ]; then
         echo loading scripts in "$SHELL_BIN_DIR"
@@ -35,47 +48,60 @@ load_bin() {
 
 
 import() {
-    if [ -d "$target" ]; then
-        directory="$target"
+    # usage import target
+    # shellcheck disable=SC2086
+    unset ${!shell_*}
+    shell_target="$1"
+
+    if [ -d "$shell_target" ]; then
+        local shell_directory="$shell_target"
         # in case it was set above
-        unset env_file
+        #unset env_file
         #env_file="$directory/$SHELL_ENV_FILE"
     else
-        directory="$(dirname "$target")"
-        env_file="$target"
+        local shell_directory="$(dirname "$shell_target")"
+        shell_env_file="$(basename "$shell_target")"
     fi
 
     load() {
-        directory="$1"
-        env_file="$2"
-        old_dir="$PWD"
+        # usage import target
+        unset "${!shell_*}"
+        local shell_directory="$1"
+        shell_env_file="$2"
+
+        shell_old_dir="$PWD"
+
+        cd "$shell_directory"
         set -x
-        cd "$directory" && source "$env_file"
-        #source "$env_file"
+        source "$shell_env_file"
         set +x
-        cd "$old_dir"
-        # todo pass and unset
-        load_import
-        load_bin
+        cd "$shell_old_dir"
+
+        # todo pass and unset - what is this
+        # todo order should not matter - but it does!
+        load_bin "$shell_directory"
+        # todo explicit pass and unset
+        load_import "$shell_directory"
     }
 
     # todo test if env_file ends with shell env file
-    if [ -z "${env_file+x}" ]; then
-        env_file="$SHELL_ENV_FILE"
-        if [ -f "$directory/$env_file" ]; then
-            load "$directory" "$env_file"
+    if [ -z "${shell_env_file+x}" ]; then
+        shell_env_file="$SHELL_ENV_FILE"
+        if [ -f "$shell_directory/$shell_env_file" ]; then
+            load "$shell_directory" "$shell_env_file"
         fi
         # no worries if SHELL_ENV_FILE doesn't exist
     else
         # must exist
-        if [ ! -f "$directory/$env_file" ]; then
-            echo env file \""$env_file"\" does not exist
+        if [ ! -f "$shell_directory/$shell_env_file" ]; then
+            echo env file \""$shell_env_file"\" in dir \""$shell_directory"\" does not exist
             exit 1
         fi
 
-        load "$directory" "$env_file"
+        load "$shell_directory" "$shell_env_file"
     fi
     # todo post load hooks
+    shell_return_directory="$shell_directory"
 }
 
 
@@ -95,13 +121,13 @@ SHELL_BIN_DIR=bin
 shell.sh() {
     # default to current directory
     declare -r default_target=.
-    local target
+    local target="$SHELL_ENV_FILE"
     if [ "$#" -gt 0 ]; then
         if [ "$1" == -- ]; then
-            target="$default_target"
+            local target="$default_target"
             shift
         else
-            target="$1"
+            local target="$1"
             shift
 
             if [ "$#" -gt 0 ] && [ "$1" == -- ]; then
@@ -111,81 +137,24 @@ shell.sh() {
     fi
 
     import "$target"
+    local shell_directory="$shell_return_directory"
+    unset "${!shell_return_*}"
+    # todo make sure everything was local and nothing propogated up?
 
     # run a command
     if [ "$#" -gt 0 ]; then
+        # todo should this have a command? command "$@"
         "$@"
         return "$?"
     fi
 
     # run interactively
-    shell_directory="$(basename "$(realpath "$directory")")"
+    local shell_directory="$(basename "$(realpath "$shell_directory")")"
+    # todo this looks wrong
     shell_environment="${environment:-default environment}"
     echo entering "$shell_directory" "$shell_environment"
+    # todo should this have a command? command "$SHELL
     "$SHELL"
     echo exiting "$shell_directory" "$shell_environment"
 }
 shell.sh "$@"
-
-exit 0
-
-read_config_file() {
-    file="$1"
-    if [ ! -f "$file" ]; then
-        return 0
-    fi
-
-    .() {
-        echo hi
-        set +x
-        read_config_file "$1"
-        set -x
-    }
-    #export -f .
-    set -x
-    source "./$file"
-    set +x
-    #SHELL_ENV="$(dirname "$file")"
-    SHELL_ENV="$file"
-    export SHELL_ENV
-    # file can override SHELL_ENV if it export SHELL_ENV
-    # actually now it can't
-}
-
-read_config() {
-    read_config_file "$XDG_CONFIG_HOME/shell.sh/shell.env"
-
-    read_config_up() {
-        dir="$PWD"
-        while [ "$dir" != "/" ]; do
-            file="$dir/$SHELL_ENV_FILE"
-            if [ -f "$file" ]; then
-                read_config_file "$file"
-            fi
-            dir="$(dirname "$dir")"
-        done
-    }
-    #read_config_up
-
-    if [ -n "$1" ]; then
-        read_config_file "$1"
-        export SHELL_ENV="${SHELL_ENV?could not load configuration, todo rerun with --debug}"
-    else
-        export SHELL_ENV="${SHELL_ENV:-unknown}"
-    fi
-}
-#read_config "$1"
-
-#workspace_dir=
-#workspace_dir="$(readlink -f "$(dirname "$0")")"
-
-# todo make this a login hook
-
-# todo login hooks
-echo "entered $SHELL_ENV"
-
-# todo make configurable SHELL_SHELL=$SHELL by default?
-"$SHELL"
-
-# todo exit hooks
-echo "exited $SHELL_ENV"
