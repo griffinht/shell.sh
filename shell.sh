@@ -48,8 +48,10 @@ unset_shell() {
 
 import() {
     setup
-    local shell_target="$1"
-    local shell_directory=asd
+    #local shell_target="$1"
+    #local shell_directory=asd
+    shell_target="$1"
+    shell_directory=asd
     unset shell_env_file
 
     if [ -d "$shell_target" ]; then
@@ -69,8 +71,8 @@ import() {
     post_hooks() {
         # todo pass and unset - what is this
         # todo order should not matter - but it does!
-        export PATH
         PATH="$(load_bin "$shell_directory")"
+        export PATH
         unset "$SHELL_BIN_DIR"
 
         # usage load_import directory
@@ -81,9 +83,7 @@ import() {
         shell_imports="$SHELL_IMPORTS"
         unset SHELL_IMPORTS
         for shell_import in $shell_imports; do
-            debug importing \""$shell_import"\"
-            import "$shell_directory/$shell_import" | debug_pipe
-            #debug imports loaded
+            import "$shell_directory/$shell_import"
         done
     }
 
@@ -117,7 +117,7 @@ import() {
         load
     fi
     # todo post load hooks
-    echo "${shell_directory?}:${shell_env_file:-default}"
+    #echo "${shell_directory?}:${shell_env_file:-default}"
 }
 
 
@@ -154,9 +154,12 @@ shell.sh() {
         fi
     fi
 
-    local IFS=':'
-    read -r shell_directory shell_environment <<< "$(import "$target")"
+    #local IFS=':'
     #read -r shell_directory shell_environment <<< "$(import "$target")"
+    import "$target"
+    # run interactively
+    shell_directory="$(basename "$(realpath "$shell_directory")")"
+    shell_env_file="${shell_env_file:-default}"
     # todo make sure everything was local and nothing propogated up?
 
     # run a command
@@ -166,12 +169,10 @@ shell.sh() {
         return "$?"
     fi
 
-    # run interactively
-    shell_directory="$(basename "$(realpath "$shell_directory")")"
     # todo this looks wrong
-    debug entering "$shell_directory" "$shell_environment"
+    debug entering "$shell_directory" "$shell_env_file"
     # todo should this have a command? command "$SHELL
     "$SHELL"
-    debug exiting "$shell_directory" "$shell_environment"
+    debug exiting "$shell_directory" "$shell_env_file"
 }
 shell.sh "$@"
