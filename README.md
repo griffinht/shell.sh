@@ -80,6 +80,9 @@ See [bin hook] for more details
 
 
 # Docker example
+make this a real directory - no need to fake it here...
+make this a real web app! encourage people to git clone it!!!!
+results first! they see the cool result then poke around the simple files at their own pace! epic!
 
 ```
 prod.override.yml
