@@ -156,6 +156,10 @@ shell.sh() {
 
     #local IFS=':'
     #read -r shell_directory shell_environment <<< "$(import "$target")"
+    if [ -d "$XDG_CONFIG_HOME/shell.sh" ]; then
+        echo "$XDG_CONFIG_HOME/shell.sh"
+        import "$XDG_CONFIG_HOME/shell.sh"
+    fi
     import "$target"
     # run interactively
     shell_directory="$(basename "$(realpath "$shell_directory")")"
