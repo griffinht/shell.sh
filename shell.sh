@@ -176,7 +176,7 @@ shell.sh() {
     # todo this looks wrong
     debug entering "$shell_directory" "$shell_env_file"
     # todo should this have a command? command "$SHELL
-    "$SHELL"
+    ${SHELL_SHELL:-$SHELL}
     debug exiting "$shell_directory" "$shell_env_file"
 }
 shell.sh "$@"
